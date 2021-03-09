@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torch import optim
 from torchvision import utils as vutils
-
+import ipdb
 from slot_attention.model import SlotAttentionModel
 from slot_attention.params import SlotAttentionParams
 from slot_attention.utils import Tensor
@@ -16,7 +16,7 @@ class SlotAttentionMethod(pl.LightningModule):
         self.datamodule = datamodule
         self.params = params
 
-    def forward(self, input: Tensor, **kwargs) -> Tensor:
+    def forward(self, input, **kwargs):
         return self.model(input, **kwargs)
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
@@ -27,28 +27,28 @@ class SlotAttentionMethod(pl.LightningModule):
 
     def sample_images(self):
         dl = self.datamodule.val_dataloader()
-        perm = torch.randperm(self.params.val_batch_size)
-        idx = perm[: self.params.n_samples]
-        batch = next(iter(dl))[idx]
-        if self.params.gpus > 0:
-            batch = batch.to(self.device)
-        recon_combined, recons, masks, slots = self.model.forward(batch)
-
+        #perm = torch.randperm(self.params.val_batch_size)
+        #idx = perm[: self.params.n_samples]
+        batch = next(iter(dl))
+        batch = batch.to(self.device)
+        recon_combined, recons, masks, slots, recon_combined_preds, recons_preds, masks_preds, slots_preds = self.model.forward(batch)
         # combine images in a nice way so we can display all outputs in one grid, output rescaled to be between 0 and 1
+        B,L,C,H,W=batch.shape
         out = to_rgb_from_tensor(
             torch.cat(
                 [
-                    batch.unsqueeze(1),  # original images
-                    recon_combined.unsqueeze(1),  # reconstructions
-                    recons * masks + (1 - masks),  # each slot
+                    batch[:,-4:,:,:,:].view(B*4,C,H,W).unsqueeze(1),  # original images
+                    recon_combined[:,-4:,:,:,:].view(B*4,C,H,W).unsqueeze(1),  # reconstructions
+                    recon_combined_preds.view(B*4,C,H,W).unsqueeze(1),
+                    (recons_preds* masks_preds + (1 - masks_preds)).view(B*4,-1,C,H,W),  # each slot
                 ],
                 dim=1,
             )
         )
 
-        batch_size, num_slots, C, H, W = recons.shape
+        batch_size, max_len,num_slots, C, H, W = recons.shape
         images = vutils.make_grid(
-            out.view(batch_size * out.shape[1], C, H, W).cpu(), normalize=False, nrow=out.shape[1],
+            out.view(batch_size * 4 * out.shape[1], C, H, W).cpu(), normalize=False, nrow=out.shape[1],
         )
 
         return images
@@ -58,9 +58,11 @@ class SlotAttentionMethod(pl.LightningModule):
         return val_loss
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
+        avg_loss_pred = torch.stack([x["loss_pred"] for x in outputs]).mean()
+        avg_loss_recon = torch.stack([x["loss_recon"] for x in outputs]).mean()
         logs = {
-            "avg_val_loss": avg_loss,
+            "avg_val_loss_recon": avg_loss_recon,
+            "avg_val_loss_pred": avg_loss_pred,
         }
         self.log_dict(logs, sync_dist=True)
         print("; ".join([f"{k}: {v.item():.6f}" for k, v in logs.items()]))

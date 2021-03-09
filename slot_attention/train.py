@@ -1,11 +1,11 @@
 from typing import Optional
-
+import torch
 import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from torchvision import transforms
 
-from slot_attention.data import CLEVRDataModule
+from slot_attention.data import CLEVRERDataModule
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.model import SlotAttentionModel
 from slot_attention.params import SlotAttentionParams
@@ -19,25 +19,24 @@ def main(params: Optional[SlotAttentionParams] = None):
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
-    if params.is_verbose:
-        print(f"INFO: limiting the dataset to only images with `num_slots - 1` ({params.num_slots - 1}) objects.")
-        if params.num_train_images:
-            print(f"INFO: restricting the train dataset size to `num_train_images`: {params.num_train_images}")
-        if params.num_val_images:
-            print(f"INFO: restricting the validation dataset size to `num_val_images`: {params.num_val_images}")
+    #if params.is_verbose:
+    #    print(f"INFO: limiting the dataset to only images with `num_slots - 1` ({params.num_slots - 1}) objects.")
+    #    if params.num_train_images:
+    #        print(f"INFO: restricting the train dataset size to `num_train_images`: {params.num_train_images}")
+    #    if params.num_val_images:
+    #        print(f"INFO: restricting the validation dataset size to `num_val_images`: {params.num_val_images}")
 
     clevr_transforms = transforms.Compose(
         [
-            transforms.CenterCrop(240),
+            #transforms.CenterCrop(240),
             transforms.ToTensor(),
             transforms.Lambda(rescale),  # rescale between -1 and 1
             transforms.Resize(params.resolution),
         ]
     )
 
-    clevr_datamodule = CLEVRDataModule(
+    clevr_datamodule = CLEVRERDataModule(
         data_root=params.data_root,
-        max_n_objects=params.num_slots - 1,
         train_batch_size=params.batch_size,
         val_batch_size=params.val_batch_size,
         clevr_transforms=clevr_transforms,
@@ -55,6 +54,9 @@ def main(params: Optional[SlotAttentionParams] = None):
         empty_cache=params.empty_cache,
     )
 
+    if params.restore:
+        state_dict = torch.load(params.restore,map_location='cpu')['state_dict']
+        model.load_state_dict({key[6:] : state_dict[key] for key in state_dict})
     method = SlotAttentionMethod(model=model, datamodule=clevr_datamodule, params=params)
 
     logger_name = params.logger_name #"slot-attention-clevr6"
