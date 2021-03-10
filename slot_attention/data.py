@@ -27,7 +27,7 @@ class CLEVRDataset(Dataset):
         self.data_root = data_root
         self.clevr_transforms = clevr_transforms
         self.max_num_images = max_num_images
-        self.data_path = os.path.join(data_root, "images", split)
+        self.data_path = os.path.join(data_root, split)
         self.max_n_objects = max_n_objects
         self.split = split
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
@@ -45,18 +45,13 @@ class CLEVRDataset(Dataset):
         return len(self.files)
 
     def get_files(self) -> List[str]:
-        with open(os.path.join(self.data_root, f"scenes/CLEVR_{self.split}_scenes.json")) as f:
-            scene = json.load(f)
         paths: List[Optional[str]] = []
-        total_num_images = len(scene["scenes"])
-        i = 0
-        while (self.max_num_images is None or len(paths) < self.max_num_images) and i < total_num_images:
-            num_objects_in_scene = len(scene["scenes"][i]["objects"])
-            if num_objects_in_scene <= self.max_n_objects:
-                image_path = os.path.join(self.data_path, scene["scenes"][i]["image_filename"])
-                assert os.path.exists(image_path), f"{image_path} does not exist"
-                paths.append(image_path)
-            i += 1
+        video_files = os.listdir(self.data_path)
+        for video_file in video_files:
+            img_files = os.listdir(os.path.join(self.data_path,video_file))
+            for img_file in img_files:
+                paths.append(os.path.join(self.data_path,video_file,img_file))
+
         return sorted(compact(paths))
 
 

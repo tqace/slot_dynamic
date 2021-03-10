@@ -1,5 +1,6 @@
 from typing import Optional
-
+import ipdb
+import torch
 import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
@@ -28,7 +29,7 @@ def main(params: Optional[SlotAttentionParams] = None):
 
     clevr_transforms = transforms.Compose(
         [
-            transforms.CenterCrop(240),
+            #transforms.CenterCrop(240),
             transforms.ToTensor(),
             transforms.Lambda(rescale),  # rescale between -1 and 1
             transforms.Resize(params.resolution),
@@ -54,6 +55,12 @@ def main(params: Optional[SlotAttentionParams] = None):
         num_iterations=params.num_iterations,
         empty_cache=params.empty_cache,
     )
+    if params.restore:
+        model_dict = model.state_dict()
+        state_dict = torch.load(params.restore,map_location='cpu')['state_dict']
+        new_state_dict = {key[6:] : state_dict[key] for key in state_dict }
+        model_dict.update(new_state_dict)
+        model.load_state_dict(model_dict)
 
     method = SlotAttentionMethod(model=model, datamodule=clevr_datamodule, params=params)
 

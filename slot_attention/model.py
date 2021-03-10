@@ -107,7 +107,7 @@ class SlotAttentionModel(nn.Module):
         kernel_size: int = 5,
         slot_size: int = 64,
         hidden_dims: Tuple[int, ...] = (64, 64, 64, 64),
-        decoder_resolution: Tuple[int, int] = (8, 8),
+        decoder_resolution: Tuple[int, int] = (10, 15),
         empty_cache=False,
     ):
         super().__init__()
@@ -151,8 +151,8 @@ class SlotAttentionModel(nn.Module):
         # Build Decoder
         modules = []
 
-        in_size = decoder_resolution[0]
-        out_size = in_size
+        in_size = decoder_resolution
+        out_size = [in_size[0],in_size[1]]
 
         for i in range(len(self.hidden_dims) - 1, -1, -1):
             modules.append(
@@ -168,11 +168,12 @@ class SlotAttentionModel(nn.Module):
                     nn.LeakyReLU(),
                 )
             )
-            out_size = conv_transpose_out_shape(out_size, 2, 2, 5, 1)
+            out_size[0] = conv_transpose_out_shape(out_size[0], 2, 2, 5, 1)
+            out_size[1] = conv_transpose_out_shape(out_size[1], 2, 2, 5, 1)
 
         assert_shape(
             resolution,
-            (out_size, out_size),
+            (out_size[0], out_size[1]),
             message="Output shape of decoder did not match input resolution. Try changing `decoder_resolution`.",
         )
 
@@ -187,7 +188,7 @@ class SlotAttentionModel(nn.Module):
             )
         )
 
-        assert_shape(resolution, (out_size, out_size), message="")
+        assert_shape(resolution, (out_size[0], out_size[1]), message="")
 
         self.decoder = nn.Sequential(*modules)
         self.decoder_pos_embedding = SoftPositionEmbed(self.in_channels, self.out_features, self.decoder_resolution)
