@@ -7,8 +7,8 @@ import attr
 @attr.s(auto_attribs=True)
 class SlotAttentionParams:
     lr: float = 0.0001
-    batch_size: int = 32
-    val_batch_size: int = 32
+    batch_size: int = 16
+    val_batch_size: int = 16
     resolution: Tuple[int, int] = (160, 240)
     num_slots: int = 7
     num_iterations: int = 3
@@ -28,5 +28,5 @@ class SlotAttentionParams:
     warmup_steps_pct: float = 0
     decay_steps_pct: float = 0.2
     project_name: str = 'slot-attention-clevrer'
-    logger_name: str = 'finetune128->160->nowarm'
-    restore: str = 'wandb/run-20210310_102333-2h3dluic/files/slot-attention-clevrer/2h3dluic/checkpoints/epoch=75-step=9726.ckpt'
+    logger_name: str = 'occupy'
+    restore: str ='' # 'wandb/run-20210310_102333-2h3dluic/files/slot-attention-clevrer/2h3dluic/checkpoints/epoch=75-step=9726.ckpt'
