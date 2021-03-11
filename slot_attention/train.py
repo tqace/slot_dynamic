@@ -1,4 +1,5 @@
 from typing import Optional
+import ipdb
 import torch
 import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -55,8 +56,24 @@ def main(params: Optional[SlotAttentionParams] = None):
     )
 
     if params.restore:
+        model_dict = model.state_dict()
         state_dict = torch.load(params.restore,map_location='cpu')['state_dict']
-        model.load_state_dict({key[6:] : state_dict[key] for key in state_dict})
+        new_state_dict = {key[6:] : state_dict[key] for key in state_dict }
+        model_dict.update(new_state_dict)
+        model.load_state_dict(model_dict)
+        for name, param in model.named_parameters():
+            if  'self_att' not in name and 'slot_pred' not in name:
+                param.requires_grad=False
+        '''
+        
+        freeze_ind=[]
+        for i ,p in enumerate(model.state_dict()):
+            if p in new_state_dict:
+                freeze_ind.append(i)
+        for i ,param in enumerate(model.parameters()):
+            if i in freeze_ind:
+                param.requires_grad = False
+        '''
     method = SlotAttentionMethod(model=model, datamodule=clevr_datamodule, params=params)
 
     logger_name = params.logger_name #"slot-attention-clevr6"

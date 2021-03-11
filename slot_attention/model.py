@@ -165,7 +165,6 @@ class SlotAttentionModel(nn.Module):
             nn.Linear(self.out_features, self.out_features),
         )
 
-        self.slot_pred = nn.Linear(self.out_features*2, self.out_features)
         # Build Decoder
         modules = []
 
@@ -218,10 +217,14 @@ class SlotAttentionModel(nn.Module):
             mlp_hidden_size=128,
         )
         
+        #for p in self.parameters():
+        #    p.requires_grad=False
+
         self.dynamic_pos_embedding = DynamicPositionEmbed(d_model=self.out_features)
         
         self.self_att = SelfAttention(self.out_features, num_attention_heads=1, dropout_prob=0)
 
+        self.slot_pred = nn.Linear(self.out_features*3, self.out_features)
     def forward(self, input):
         #x=input['x']
         #is_pad = input['is_pad']
@@ -231,6 +234,7 @@ class SlotAttentionModel(nn.Module):
 
         batch_size,max_len,num_channels, height, width = x.shape
         x = x.view(batch_size*max_len,num_channels,height,width)
+        #with torch.no_grad():
         encoder_out = self.encoder(x)
         encoder_out = self.encoder_pos_embedding(encoder_out)
         encoder_out = torch.flatten(encoder_out, start_dim=2, end_dim=3)
@@ -269,12 +273,13 @@ class SlotAttentionModel(nn.Module):
 	#batch_size,max_len, num_slots, slot_size = slots.shape
         slots_pe,pe = self.dynamic_pos_embedding(slots)
         slots_pe = slots_pe.view(batch_size,max_len*num_slots,slot_size)
-        ref_len = max_len-4
+        ref_len = max_len-8
         slots_refs = self.self_att(slots_pe[:,:ref_len*num_slots,:],attention_mask=torch.ones(batch_size,ref_len*num_slots).cuda())
-        slots_refs = slots_refs.view(batch_size,ref_len,num_slots,slot_size)
-        slots_ref = slots_refs[:,-1,:,:].unsqueeze(1)
+        slots_refs = torch.cat((slots_refs,slots_pe[:,:ref_len*num_slots,:]),dim=-1)
+        slots_refs = slots_refs.view(batch_size,ref_len,num_slots,slot_size*2)
+        slots_ref = slots_refs[:,-4,:,:].unsqueeze(1)
         slots_ref = slots_ref.repeat(1,4,1,1)
-        pe_preds = pe[ref_len:]
+        pe_preds = pe[-4:]
         pe_preds = pe_preds.view(4,1,slot_size)
         pe_preds.unsqueeze(0)
         pe_preds = pe_preds.repeat(batch_size,1,num_slots,1)
@@ -284,6 +289,7 @@ class SlotAttentionModel(nn.Module):
         slots_preds = slots_preds.view(batch_size*4*num_slots, slot_size, 1, 1)
 
         decoder_in = slots_preds.repeat(1, 1, self.decoder_resolution[0], self.decoder_resolution[1])
+        #with torch.no_grad():
 
         out = self.decoder_pos_embedding(decoder_in)
         out = self.decoder(out)
@@ -295,8 +301,8 @@ class SlotAttentionModel(nn.Module):
         masks_preds = out_preds[:,:, :, -1:, :, :]
         masks_preds = F.softmax(masks_preds, dim=2)
         recon_combined_preds = torch.sum(recons_preds * masks_preds, dim=2)
-	#####
-        #ForkedPdb().set_trace()
+            #####
+            #ForkedPdb().set_trace()
 
 
         return recon_combined, recons, masks, slots, recon_combined_preds, recons_preds, masks_preds, slots_preds
