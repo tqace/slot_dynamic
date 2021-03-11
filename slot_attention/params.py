@@ -7,7 +7,7 @@ import attr
 @attr.s(auto_attribs=True)
 class SlotAttentionParams:
     lr: float = 0.0004
-    batch_size: int = 2
+    batch_size: int = 1
     val_batch_size: int = 1
     resolution: Tuple[int, int] = (160, 240)
     num_slots: int = 7
@@ -28,6 +28,6 @@ class SlotAttentionParams:
     warmup_steps_pct: float = 0
     decay_steps_pct: float = 0.01
     project_name: str = 'slot-attention-clevrer'
-    logger_name: str = 'pred4<-'
-    restore: str = '/data1/qu_tang/slot_dynamic/wandb/run-20210310_222153-13s39vbr/files/slot-attention-clevrer/13s39vbr/checkpoints/epoch=208-step=25467.ckpt'
+    logger_name: str = '匈牙利loss'
+    restore: str = 'data/tmp/epoch=20-step=2658.ckpt'
 

@@ -10,7 +10,8 @@ from slot_attention.utils import Tensor
 from slot_attention.utils import assert_shape
 from slot_attention.utils import build_grid
 from slot_attention.utils import conv_transpose_out_shape
-
+import numpy as np
+import scipy.optimize
 import sys
 import pdb
 
@@ -313,10 +314,18 @@ class SlotAttentionModel(nn.Module):
         recon_combined, recons, masks, slots , recon_combined_preds, recons_preds, masks_preds, slots_preds = self.forward(input)
         loss_recon = F.mse_loss(recon_combined, input)
         loss_pred = F.mse_loss(recon_combined_preds, input[:,-4:,:,:,:])
+        slots_tgts = slots[:,-4:,:,:].view(-1,7,64)
+        slots_preds = slots_preds.view(-1,7,64)
+        pairwise_cost = torch.cdist(slots_preds,slots_tgts,p=2)
+        indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost.cpu().detach())))
+        cost = 0
+        for i in range(len(pairwise_cost)):
+            cost+=torch.mean(pairwise_cost[i,indices[i][0],indices[i][1]])
+        cost /= i
         return {
             "loss_recon": loss_recon,
-            "loss_pred": loss_pred,
-            "loss":loss_recon+loss_pred,
+            "loss_pred": cost+loss_pred,
+            "loss":loss_recon+cost+loss_pred,
         }
 
 
