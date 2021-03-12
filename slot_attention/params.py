@@ -6,7 +6,7 @@ import attr
 
 @attr.s(auto_attribs=True)
 class SlotAttentionParams:
-    lr: float = 0.0004
+    lr: float = 0.001
     batch_size: int = 1
     val_batch_size: int = 1
     resolution: Tuple[int, int] = (160, 240)
@@ -23,11 +23,12 @@ class SlotAttentionParams:
     empty_cache: bool = True
     is_logger_enabled: bool = True
     is_verbose: bool = True
-    num_workers: int = 8
+    num_workers: int = 16
     n_samples: int = 5
     warmup_steps_pct: float = 0
-    decay_steps_pct: float = 0.01
+    decay_steps_pct: float = 0.1
     project_name: str = 'slot-attention-clevrer'
-    logger_name: str = '匈牙利loss'
+    logger_name: str = '匈牙利loss,10pred2'
     restore: str = 'data/tmp/epoch=20-step=2658.ckpt'
+    #restore: str = 'wandb/run-20210311_145725-3jreynlz/files/slot-attention-clevrer/3jreynlz/checkpoints/epoch=31-step=7562.ckpt'
 

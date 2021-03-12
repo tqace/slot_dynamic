@@ -225,6 +225,7 @@ class SlotAttentionModel(nn.Module):
         
         self.self_att = SelfAttention(self.out_features, num_attention_heads=1, dropout_prob=0)
 
+
         self.slot_pred = nn.Linear(self.out_features*3, self.out_features)
     def forward(self, input):
         #x=input['x']
@@ -274,20 +275,19 @@ class SlotAttentionModel(nn.Module):
 	#batch_size,max_len, num_slots, slot_size = slots.shape
         slots_pe,pe = self.dynamic_pos_embedding(slots)
         slots_pe = slots_pe.view(batch_size,max_len*num_slots,slot_size)
-        ref_len = max_len-8
+        ref_len = max_len-6
         slots_refs = self.self_att(slots_pe[:,:ref_len*num_slots,:],attention_mask=torch.ones(batch_size,ref_len*num_slots).cuda())
         slots_refs = torch.cat((slots_refs,slots_pe[:,:ref_len*num_slots,:]),dim=-1)
         slots_refs = slots_refs.view(batch_size,ref_len,num_slots,slot_size*2)
-        slots_ref = slots_refs[:,-4,:,:].unsqueeze(1)
-        slots_ref = slots_ref.repeat(1,4,1,1)
-        pe_preds = pe[-4:]
-        pe_preds = pe_preds.view(4,1,slot_size)
+        slots_ref = slots_refs[:,-1,:,:].unsqueeze(1)
+        slots_ref = slots_ref.repeat(1,2,1,1)
+        pe_preds = pe[-2:]
+        pe_preds = pe_preds.view(2,1,slot_size)
         pe_preds.unsqueeze(0)
         pe_preds = pe_preds.repeat(batch_size,1,num_slots,1)
+        slots_preds = self.slot_pred(torch.cat((slots_ref,pe_preds),dim=-1).view(batch_size*2*num_slots,-1))
         #ForkedPdb().set_trace()
-        slots_preds = self.slot_pred(torch.cat((slots_ref,pe_preds),dim=-1).view(batch_size*4*num_slots,-1))
-
-        slots_preds = slots_preds.view(batch_size*4*num_slots, slot_size, 1, 1)
+        slots_preds = slots_preds.view(batch_size*2*num_slots, slot_size, 1, 1)
 
         decoder_in = slots_preds.repeat(1, 1, self.decoder_resolution[0], self.decoder_resolution[1])
         #with torch.no_grad():
@@ -296,8 +296,8 @@ class SlotAttentionModel(nn.Module):
         out = self.decoder(out)
         # `out` has shape: [batch_size*num_slots, num_channels+1, height, width].
         #assert_shape(out.size(), (batch_size * num_slots, num_channels + 1, height, width))
-        slots_preds = slots_preds.view(batch_size,4,num_slots,slot_size)
-        out_preds = out.view(batch_size,4, num_slots, num_channels + 1, height, width)
+        slots_preds = slots_preds.view(batch_size,2,num_slots,slot_size)
+        out_preds = out.view(batch_size,2, num_slots, num_channels + 1, height, width)
         recons_preds = out_preds[:,:, :, :num_channels, :, :]
         masks_preds = out_preds[:,:, :, -1:, :, :]
         masks_preds = F.softmax(masks_preds, dim=2)
@@ -313,8 +313,8 @@ class SlotAttentionModel(nn.Module):
     def loss_function(self, input):
         recon_combined, recons, masks, slots , recon_combined_preds, recons_preds, masks_preds, slots_preds = self.forward(input)
         loss_recon = F.mse_loss(recon_combined, input)
-        loss_pred = F.mse_loss(recon_combined_preds, input[:,-4:,:,:,:])
-        slots_tgts = slots[:,-4:,:,:].view(-1,7,64)
+        loss_pred = F.mse_loss(recon_combined_preds, input[:,-2:,:,:,:])
+        slots_tgts = slots[:,-2:,:,:].view(-1,7,64)
         slots_preds = slots_preds.view(-1,7,64)
         pairwise_cost = torch.cdist(slots_preds,slots_tgts,p=2)
         indices = np.array(list(map(scipy.optimize.linear_sum_assignment, pairwise_cost.cpu().detach())))
@@ -355,7 +355,9 @@ class DynamicPositionEmbed(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         x=x.permute(0,2,1,3)+pe.cuda()
         x=x.permute(0,2,1,3).contiguous()
-        return x,pe.cuda()
+        pe = pe.cuda()
+        pe.require_grad = False
+        return x,pe
 
 class SelfAttention(nn.Module):
     
@@ -382,6 +384,7 @@ class SelfAttention(nn.Module):
         
         # dropout
         self.dropout = nn.Dropout(dropout_prob)
+        self.FF = nn.Linear(hidden_size,hidden_size)
 
     def transpose_for_scores(self, x):
         # INPUT:  x'shape = [bs, seqlen, hid_size]  假设hid_size=128
@@ -424,7 +427,7 @@ class SelfAttention(nn.Module):
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()   # [bs, seqlen, 8, 16]
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)   # [bs, seqlen, 128]
         context_layer = context_layer.view(*new_context_layer_shape)
-        return context_layer    # [bs, seqlen, 128] 得到输出
+        return self.FF(context_layer)    # [bs, seqlen, 128] 得到输出
 
 class PositionalEmbedding(nn.Module):
 

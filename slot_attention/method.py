@@ -37,10 +37,11 @@ class SlotAttentionMethod(pl.LightningModule):
         out = to_rgb_from_tensor(
             torch.cat(
                 [
-                    batch[:,-4:,:,:,:].view(B*4,C,H,W).unsqueeze(1),  # original images
-                    recon_combined[:,-4:,:,:,:].view(B*4,C,H,W).unsqueeze(1),  # reconstructions
-                    recon_combined_preds.view(B*4,C,H,W).unsqueeze(1),
-                    (recons_preds* masks_preds + (1 - masks_preds)).view(B*4,-1,C,H,W),  # each slot
+                    batch[:,[4,9],:,:,:].view(B*2,C,H,W).unsqueeze(1),  # original images
+                    batch[:,-2:,:,:,:].view(B*2,C,H,W).unsqueeze(1),  # original images
+                    #recon_combined[:,-2:,:,:,:].view(B*2,C,H,W).unsqueeze(1),  # reconstructions
+                    recon_combined_preds.view(B*2,C,H,W).unsqueeze(1),
+                    (recons_preds* masks_preds + (1 - masks_preds)).view(B*2,-1,C,H,W),  # each slot
                 ],
                 dim=1,
             )
@@ -48,7 +49,7 @@ class SlotAttentionMethod(pl.LightningModule):
 
         batch_size, max_len,num_slots, C, H, W = recons.shape
         images = vutils.make_grid(
-            out.view(batch_size * 4 * out.shape[1], C, H, W).cpu(), normalize=False, nrow=out.shape[1],
+            out.view(batch_size * 2 * out.shape[1], C, H, W).cpu(), normalize=False, nrow=out.shape[1],
         )
 
         return images
