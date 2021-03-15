@@ -6,7 +6,7 @@ from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Tuple
-
+import random
 import pytorch_lightning as pl
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -36,7 +36,7 @@ class CLEVRERDataset(Dataset):
     def __getitem__(self, index: int):
         video_path = self.files[index]
         image_files = os.listdir(video_path)
-        image_files.sort(key=self.sort_key)
+        image_files.sort(key=self.sort_key,reverse=random.random()>0.5)
         imgs = []
         for image_file in image_files:
             img = Image.open(os.path.join(video_path,image_file))

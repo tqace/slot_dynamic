@@ -26,9 +26,10 @@ class SlotAttentionParams:
     num_workers: int = 16
     n_samples: int = 5
     warmup_steps_pct: float = 0
-    decay_steps_pct: float = 0.1
+    decay_steps_pct: float = 0.05
     project_name: str = 'slot-attention-clevrer'
     logger_name: str = '匈牙利loss,10pred2'
-    restore: str = 'data/tmp/epoch=20-step=2658.ckpt'
+    #restore: str = 'data/tmp/epoch=20-step=2658.ckpt'
     #restore: str = 'wandb/run-20210311_145725-3jreynlz/files/slot-attention-clevrer/3jreynlz/checkpoints/epoch=31-step=7562.ckpt'
+    restore: str = '/mnt/diskb/qu_tang/slot_dynamic/wandb/run-20210312_152522-2nr2vu5b/files/slot-attention-clevrer/2nr2vu5b/checkpoints/epoch=26-step=6047.ckpt'
 
